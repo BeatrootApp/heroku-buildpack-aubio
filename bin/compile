@@ -1,0 +1,43 @@
+#! /bin/bash
+
+set -e
+
+BUILD_DIR=$1
+
+indent() {
+  sed -u 's/^/       /'
+}
+
+arrow() {
+  sed -u 's/^/-----> /'
+}
+
+function mktmpdir() {
+  dir=$(mktemp -t aubio-$1-XXXX)
+  rm -rf $dir
+  mkdir -p $dir
+  echo $dir
+}
+
+echo "Installing Aubio" | arrow
+
+aubio_lib_path=$BUILD_DIR/vendor/aubio
+mkdir -p $aubio_lib_path
+
+VENDORED_AUBIO="$(mktmpdir aubio)"
+
+curl "http://aubio.org/pub/aubio-0.4.2.tar.bz2" -s -o - | tar xjf - -C $VENDORED_AUBIO
+
+cd $VENDORED_AUBIO/aubio-0.4.2
+./waf configure --prefix=$aubio_lib_path
+./waf build
+./waf install
+
+echo "Building runtime environment for aubio" | arrow
+mkdir -p $BUILD_DIR/.profile.d
+echo "export PATH=\"\$HOME/bin:\$PATH\"" > $BUILD_DIR/.profile.d/aubio.sh
+echo "export LD_LIBRARY_PATH=\"/app/vendor/aubio/lib/:\$LD_LIBRARY_PATH\"" >> $BUILD_DIR/.profile.d/aubio.sh
+
+cat <<EOF > export
+export PATH=$BUILD_DIR/bin:$PATH
+EOF
